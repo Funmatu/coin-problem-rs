@@ -27,7 +27,7 @@ This creates a strict data dependency: calculating the value for amount $v$ requ
 
 ### 2. Solution A: Transposed Memory Layout
 Standard DP tables are often shaped `[coins][amount]`. However, we are interested in the cardinality constraint (max coins $M$).
-LimitBreakRS uses a **Transposed Layout**: `[amount][max_coins]`.
+Coin-Problem-RS uses a **Transposed Layout**: `[amount][max_coins]`.
 * **Structure:** `dp[v][k]` stores the ways to make amount $v$ with exactly $k$ coins.
 * **Benefit:** The inner loop iterates over $k$ (`1..M`). In the transposed layout, `dp[v][1..M]` occupies contiguous memory addresses. This maximizes **L1 Cache Hits** and allows the CPU to use SIMD instructions efficiently for the vector addition.
 
@@ -37,7 +37,7 @@ The dependencies form $c$ independent chains based on the remainder modulo $c$:
 * Chain 0: $0 \to c \to 2c \dots$
 * Chain 1: $1 \to 1+c \to 1+2c \dots$
 
-**LimitBreakRS leverages this by parallelizing across remainders.**
+**Coin-Problem-RS leverages this by parallelizing across remainders.**
 Using `Rayon`, we launch threads to handle each remainder group independently. This allows us to utilize all CPU cores without any locks or synchronization, breaking the single-core speed limit of SIMD.
 
 ### 4. Unsafe Optimization

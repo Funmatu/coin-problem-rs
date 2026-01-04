@@ -23,7 +23,7 @@ def numba_simd(target, max_coins, coins):
 
 
 def run_bench():
-    print("=== LimitBreakRS vs Numba Benchmark ===")
+    print("=== Coin-Problem-RS vs Numba Benchmark ===")
 
     # Test Parameters
     TARGET = 100_000
@@ -41,7 +41,7 @@ def run_bench():
     print(f" Done. ({dur_numba:.4f}s)")
 
     # 2. Rust Warmup & Run
-    print("Running LimitBreakRS (Rust)...", end="", flush=True)
+    print("Running Coin-Problem-RS (Rust)...", end="", flush=True)
     coin_problem_rs.solve(100, 10, COINS)  # Warmup
     start = time.time()
     res_rust = coin_problem_rs.solve(TARGET, MAX_COINS, COINS)
