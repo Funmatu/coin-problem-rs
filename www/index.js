@@ -1,4 +1,4 @@
-import init, { solve_js } from './pkg/limit_break_rs.js';
+import init, { solve_js } from './pkg/coin_problem_rs.js';
 
 async function run() {
     await init();

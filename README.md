@@ -70,7 +70,7 @@ python benchmark.py
 ```
 
 ```python
-import limit_break_rs
+import coin_problem_rs
 import numpy as np
 
 target = 100000
@@ -78,7 +78,7 @@ max_coins = 1000
 coins = np.array([10, 50, 100, 500], dtype=np.int64)
 
 # Returns result (int)
-result = limit_break_rs.solve(target, max_coins, coins)
+result = coin_problem_rs.solve(target, max_coins, coins)
 
 ```
 
