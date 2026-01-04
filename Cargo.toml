@@ -1,18 +1,18 @@
 [package]
-name = "nx-compute-rs"
+name = "coin-problem-rs"
 version = "0.1.0"
 edition = "2021"
-authors = ["R&D Researcher <your.email@example.com>"]
+authors = ["R&D Researcher funmatu@gmail.com"]
 description = "A dual-runtime computation core for WebAssembly and Python, powered by Rust."
 
 [lib]
-name = "nx_compute_rs"
+name = "coin_problem_rs"
 crate-type = ["cdylib"]
 
 [features]
 default = ["wasm"]
 wasm = ["dep:wasm-bindgen"]
-python = ["dep:pyo3"]
+python = ["dep:pyo3", "dep:numpy"]
 
 [dependencies]
 # Common dependencies (Math, etc.)
@@ -22,7 +22,8 @@ serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen = { version = "0.2", optional = true }
 
 # Feature: Python
-pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+pyo3 = { version = "0.23", features = ["extension-module"], optional = true }
+numpy = { version = "0.23", optional = true }
 
 rayon = "1.10"
 

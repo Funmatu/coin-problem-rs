@@ -1,27 +1,36 @@
-import init, { compute_metrics_js } from './pkg/nx_compute_rs.js';
+import init, { solve_js } from './pkg/limit_break_rs.js';
 
 async function run() {
-    await init(); // Initialize WASM
+    await init();
     
     const btn = document.getElementById('run-btn');
     const output = document.getElementById('output');
     
-    btn.innerText = "Run Core Algorithm (10M iters)";
+    btn.innerText = "RUN SOLVER";
     btn.disabled = false;
 
     btn.addEventListener('click', () => {
+        const target = parseInt(document.getElementById('input-target').value);
+        const maxCoins = parseInt(document.getElementById('input-max-coins').value);
+        const coinsStr = document.getElementById('input-coins').value;
+        
+        // Parse coins string to BigInt64Array (Rust expects i64)
+        const coinsArray = coinsStr.split(',').map(s => BigInt(s.trim()));
+        const coins = new BigInt64Array(coinsArray);
+
         output.innerText = "Computing...";
         
-        // Use setTimeout to allow UI to update before blocking main thread
         setTimeout(() => {
             const start = performance.now();
-            
-            // Call Rust function
-            const result = compute_metrics_js(10_000_000n, 1.5);
-            
-            const end = performance.now();
-            output.innerText = `Result: ${result.toFixed(6)}\nTime: ${(end - start).toFixed(2)} ms`;
-        }, 10);
+            try {
+                // Call Rust
+                const result = solve_js(target, maxCoins, coins);
+                const end = performance.now();
+                output.innerText = `Combinations: ${result}\nTime: ${(end - start).toFixed(2)} ms`;
+            } catch (e) {
+                output.innerText = `Error: ${e}`;
+            }
+        }, 50);
     });
 }
 

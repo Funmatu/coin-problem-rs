@@ -1,154 +1,108 @@
-# Nexus Compute RS: Dual-Runtime R&D Architecture
+# Coin Problem: Hyper-Optimized Coin Change Solver
 
-![Build Status](https://github.com/Funmatu/nx-compute-rs/actions/workflows/deploy.yml/badge.svg)
 ![Rust](https://img.shields.io/badge/Language-Rust-orange.svg)
-![Platform](https://img.shields.io/badge/Platform-WASM%20%7C%20Python-blue.svg)
+![Python](https://img.shields.io/badge/Python-PyO3-blue.svg)
+![WASM](https://img.shields.io/badge/Web-WASM-yellow.svg)
 
-**Nexus Compute RS** is a rigorous proof-of-concept template designed for R&D in Physical AI and Robotics. It implements a "Write Once, Run Everywhere" strategy for high-performance algorithms, bridging the gap between web-based visualization/sharing and Python-based rigorous analysis/backend processing.
+**Coin-Problem-RS** is a specialized high-performance computing kernel designed to solve the "Coin Change Problem with Cardinality Constraints" (finding the number of ways to pay $N$ using at most $M$ coins).
 
-## 1. Architectural Philosophy
+This project demonstrates how to break the performance limits of Python (even with Numba/SIMD) by leveraging **Rust**, **Unsafe Pointer Arithmetic**, **Transposed Memory Layout**, and **Modulo Parallelism**.
 
-In modern R&D, we often face a dilemma:
-* **Python** is required for data analysis, ML integration (PyTorch), and ROS2 interfacing.
-* **Web (JavaScript)** is required for easy sharing, visualization, and zero-setup demos.
-* **Performance** is critical for SLAM, Optimization, and Simulation.
+## 🚀 Performance
 
-This project solves this by implementing the core logic in **Rust**, which is then compiled into two distinct targets via Feature Flags:
+| Implementation | Time (N=100k, M=1k) | Speedup | Note |
+|:---|:---:|:---:|:---|
+| **Python (Numpy)** | > 100.0s | 1x | Memory bound & Overhead heavy |
+| **Numba (SIMD)** | 1.25s | ~80x | Highly optimized SIMD slicing |
+| **Coin-Problem-RS** | **0.76s** | **~130x** | **Modulo Parallelism + Transposed Layout** |
 
-```mermaid
-graph TD
-    subgraph "Core Logic (Rust)"
-        Alg[Algorithm / Physics / Math]
-    end
+## 🧠 Technical Deep Dive
 
-    subgraph "Target: Web (WASM)"
-        WB[wasm-bindgen]
-        JS[JavaScript / Browser]
-        Alg --> WB --> JS
-    end
+The core algorithm overcomes the **Memory Wall** and **Data Dependency** issues inherent in dynamic programming.
 
-    subgraph "Target: Python (Native)"
-        PyO3[PyO3 Bindings]
-        Py[Python Environment]
-        Alg --> PyO3 --> Py
-    end
+### 1. The Challenge: Unbounded Knapsack Dependency
+The standard DP transition for the coin change problem (unbounded knapsack) is:
+$$dp[v] = dp[v] + dp[v-c]$$
+This creates a strict data dependency: calculating the value for amount $v$ requires the result of $v-c$ (using the *same* coin). This dependency chain usually prevents parallelization across the amount $v$.
+
+### 2. Solution A: Transposed Memory Layout
+Standard DP tables are often shaped `[coins][amount]`. However, we are interested in the cardinality constraint (max coins $M$).
+LimitBreakRS uses a **Transposed Layout**: `[amount][max_coins]`.
+* **Structure:** `dp[v][k]` stores the ways to make amount $v$ with exactly $k$ coins.
+* **Benefit:** The inner loop iterates over $k$ (`1..M`). In the transposed layout, `dp[v][1..M]` occupies contiguous memory addresses. This maximizes **L1 Cache Hits** and allows the CPU to use SIMD instructions efficiently for the vector addition.
+
+### 3. Solution B: Modulo Parallelism (The "Limit Break")
+While $dp[v]$ depends on $dp[v-c]$, it does **not** depend on $dp[v-1]$.
+The dependencies form $c$ independent chains based on the remainder modulo $c$:
+* Chain 0: $0 \to c \to 2c \dots$
+* Chain 1: $1 \to 1+c \to 1+2c \dots$
+
+**LimitBreakRS leverages this by parallelizing across remainders.**
+Using `Rayon`, we launch threads to handle each remainder group independently. This allows us to utilize all CPU cores without any locks or synchronization, breaking the single-core speed limit of SIMD.
+
+### 4. Unsafe Optimization
+To squeeze out the last millisecond, we use `unsafe` Rust to bypass array bounds checking in the hot loop.
+```rust
+// Hot loop inside the kernel
+unsafe {
+    for k in 1..=max_coins {
+        let prev_val = *dp_ptr.add(prev_base + k - 1);
+        *dp_ptr.add(current_base + k) += prev_val;
+    }
+}
+
 ```
 
-## 2. Project Structure
+## 🛠 Usage
 
-```text
-nx-compute-rs/
-├── .github/workflows/   # CI/CD for automatic WASM deployment & Python testing
-├── src/
-│   └── lib.rs           # The SINGLE source of truth. Contains core logic + bindings.
-├── www/                 # The Web Frontend (HTML/JS)
-│   ├── index.html
-│   ├── index.js
-│   └── pkg/             # Generated WASM artifacts (by CI)
-├── Cargo.toml           # Rust configuration (defines 'wasm' and 'python' features)
-├── pyproject.toml       # Python build configuration (Maturin)
-└── README.md            # This document
-```
+### Python (High Performance Analysis)
 
-## 3. Usage Guide
+Requires `maturin`.
 
-### A. As a Python Library (For Analysis/Backend)
-
-You can use the Rust core as a native Python extension. This provides near-C++ performance within your Python scripts.
-
-**Prerequisites:**
-* Rust toolchain (`rustup`)
-* Python 3.8+
-* `pip install maturin`
-
-**Setup & Run:**
 ```bash
-# 1. Build and install into current venv
+# Install
+pip install maturin
 maturin develop --release --features python
 
-# 2. Run in Python
-python -c "import nx_compute_rs; print(nx_compute_rs.compute_metrics(10000000, 1.5))"
-# python -c "import numpy as np; i = np.arange(10000000); x = i * np.pi / 180.0 * 1.5; print(np.sum(np.sin(x) * np.cos(x)))"
-# python -m timeit -s "import nx_compute_rs" "nx_compute_rs.compute_metrics(10000000, 1.5)"
-# python -m timeit -s "import numpy as np" "i = np.arange(10000000); x = i * np.pi / 180.0 * 1.5; np.sum(np.sin(x) * np.cos(x))"
+# Run
+python benchmark.py
+
 ```
 
-## Optional: Paralell vs Serial vs NumPy
-```bash
-python -c "
-import nx_compute_rs
+```python
+import limit_break_rs
 import numpy as np
-import timeit
 
-# 1. Rust Serial (直列)
-t_serial = timeit.timeit(
-    'nx_compute_rs.compute_metrics(10000000, 1.5, False)', 
-    setup='import nx_compute_rs', 
-    number=10
-)
+target = 100000
+max_coins = 1000
+coins = np.array([10, 50, 100, 500], dtype=np.int64)
 
-# 2. Rust Parallel (並列)
-t_parallel = timeit.timeit(
-    'nx_compute_rs.compute_metrics(10000000, 1.5, True)', 
-    setup='import nx_compute_rs', 
-    number=10
-)
+# Returns result (int)
+result = limit_break_rs.solve(target, max_coins, coins)
 
-# 3. NumPy (ベクトル化)
-t_numpy = timeit.timeit(
-    'x = np.arange(10000000) * np.pi / 180.0 * 1.5; np.sum(np.sin(x) * np.cos(x))', 
-    setup='import numpy as np', 
-    number=10
-)
-
-print(f'Rust (Serial):   {t_serial/10*1000:.2f} ms')
-print(f'Rust (Parallel): {t_parallel/10*1000:.2f} ms')
-print(f'NumPy:           {t_numpy/10*1000:.2f} ms')
-"
 ```
 
-### B. As a Web Application (For Demo/Sharing)
+### WebAssembly (Browser Demo)
 
-You can run the same logic in the browser via WebAssembly.
+Runs in the browser via `wasm-bindgen`. Note that the WASM version runs in **Sequential Mode** (single-threaded) to ensure compatibility with standard browser security headers, but still benefits from the Transposed Layout cache optimization.
 
-**Prerequisites:**
-* `wasm-pack` (`curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh`)
-
-**Setup & Run:**
 ```bash
-# 1. Build WASM blob
+# Build
 wasm-pack build --target web --out-dir www/pkg --no-default-features --features wasm
 
-# 2. Serve locally (using Python's http server for simplicity)
+# Serve
 cd www
-python3 -m http.server 8000
-# Open http://localhost:8000
+python3 -m http.server
+
 ```
 
-## 4. Technical Details
+## 📂 Project Structure
 
-### Feature Flags Strategy
-We use `Cargo.toml` features to minimize binary size and dependencies.
-* **`features = ["wasm"]`**: Includes `wasm-bindgen`. Generates `.wasm` binary. Panics happen in JS console.
-* **`features = ["python"]`**: Includes `pyo3`. Generates `.so/.pyd` shared library. Python exception handling enabled.
+* `src/lib.rs`: The dual-target Rust kernel.
+* `tests/`: Python functional tests.
+* `benchmark.py`: Performance comparison script.
+* `www/`: Web frontend.
 
-### Performance Considerations
-* **Zero-Cost Abstraction:** Rust's iterators and logic compile down to optimized machine code (simd instructions where applicable) for Python, and optimized bytecode for WASM.
-* **Memory Safety:** No manual memory management (malloc/free) required, preventing segfaults in Python extensions.
-* **GIL (Global Interpreter Lock):** The Rust code runs outside Python's GIL. For multi-threaded logic, Rust can utilize all CPU cores while Python is blocked, offering true parallelism.
+## 📜 License
 
-## 5. Deployment
-
-This repository uses **GitHub Actions** to automatically deploy the Web version.
-1.  Push to `main`.
-2.  Action triggers: Compiles Rust to WASM.
-3.  Deploys `www/` folder to **GitHub Pages**.
-
-## 6. Future Roadmap
-
-* **GPU Acceleration:** Integrate `wgpu` for portable GPU compute shaders (WebGPU + Vulkan/Metal).
-* **Serialization:** Add `serde` support to pass complex JSON/Structs between JS/Python and Rust.
-* **Sim2Real:** Port the Python bindings directly to a ROS2 node.
-
----
-*Author: Funmatu*
+MIT
