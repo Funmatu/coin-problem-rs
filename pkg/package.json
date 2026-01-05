@@ -1,0 +1,19 @@
+{
+  "name": "coin-problem-rs",
+  "type": "module",
+  "collaborators": [
+    "R&D Researcher funmatu@gmail.com"
+  ],
+  "description": "A dual-runtime computation core for WebAssembly and Python, powered by Rust.",
+  "version": "0.1.0",
+  "files": [
+    "coin_problem_rs_bg.wasm",
+    "coin_problem_rs.js",
+    "coin_problem_rs.d.ts"
+  ],
+  "main": "coin_problem_rs.js",
+  "types": "coin_problem_rs.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
