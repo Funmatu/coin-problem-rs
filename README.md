@@ -1,5 +1,6 @@
 # Coin Problem: Hyper-Optimized Coin Change Solver
 
+![Build Status](https://github.com/Funmatu/coin-problem-rs/actions/workflows/deploy.yml/badge.svg)
 ![Rust](https://img.shields.io/badge/Language-Rust-orange.svg)
 ![Python](https://img.shields.io/badge/Python-PyO3-blue.svg)
 ![WASM](https://img.shields.io/badge/Web-WASM-yellow.svg)
